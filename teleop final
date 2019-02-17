@@ -1,0 +1,253 @@
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.util.Range;
+import java.lang.Math.*;
+
+@TeleOp(name="teleop", group="Linear Opmode")
+
+public class Mech extends LinearOpMode 
+{
+ 
+    double armPosition  = ARM_HOME;
+    double armSpeed     = .5;
+    double gripPosition = GRIP_HOME;
+    double gripSpeed    = .5;
+
+    // Declare OpMode members.
+    private ElapsedTime runtime    = new ElapsedTime();
+    private DcMotor leftDrive      = null;
+    private DcMotor rightDrive     = null;
+    private DcMotor leftDriveback  = null;
+    private DcMotor rightDriveback = null;
+    private DcMotor armMotor       = null;
+    private DcMotor angleMotor1    = null;
+    private DcMotor angleMotor2    = null; 
+    private DcMotor extendMotor    = null;
+    private CRServo arm_servo      = null;
+    private Servo   Grip1          = null;
+    private Servo   yes            = null;
+
+    public final static double ARM_HOME                = 0.0;
+    public final static double ARM_MIN_RANGE           = -1.0;
+    public final static double ARM_MAX_RANGE           = 1.0;
+    public final static double GRIP_HOME               =0;
+    public final static double GRIP_MIN_RANGE          = -1.0;
+    public final static double GRIP_MAX_RANGE          = 1.0;
+    static final int           Tickcount               = 1120;
+    static final double        WHEEL_DIAMETER_INCHES   = 7/8 ;     // For figuring circumference
+    static final double        COUNTS_PER_INCH         = ((Tickcount)*5);
+    static final int           Distance                = -8;
+    static final int           STRAFE                  = 18;
+    static final int           EncoderTarget           = (int) Math.round (Distance/ COUNTS_PER_INCH);
+    static final int           EncoderTarget1           = (int) Math.round (STRAFE/ COUNTS_PER_INCH);  
+
+    @Override
+    public void runOpMode() 
+        {
+            telemetry.addData("Status", "Initialized");
+            telemetry.update();
+
+       
+            leftDrive      = hardwareMap.get(DcMotor.class, "leftDrive");
+            rightDrive     = hardwareMap.get(DcMotor.class, "rightDrive");
+            leftDriveback  = hardwareMap.get(DcMotor.class, "leftDriveback");
+            rightDriveback = hardwareMap.get(DcMotor.class, "rightDriveback");
+            armMotor       = hardwareMap.get(DcMotor.class, "armMotor");
+            angleMotor1    = hardwareMap.get(DcMotor.class, "angleMotor1");
+            angleMotor2    = hardwareMap.get(DcMotor.class, "angleMotor2"); 
+            extendMotor    = hardwareMap.get(DcMotor.class, "extendMotor");
+            arm_servo      = hardwareMap.get(CRServo.class,"arm_servo");
+            Grip1          = hardwareMap.get(Servo.class, "Grip1");
+            yes            = hardwareMap.get(Servo.class, "yes");
+      
+          
+            leftDrive.setDirection(DcMotor.Direction.FORWARD);
+            rightDrive.setDirection(DcMotor.Direction.REVERSE);
+            leftDriveback.setDirection(DcMotor.Direction.FORWARD);
+            rightDriveback.setDirection(DcMotor.Direction.REVERSE);
+            armMotor.setDirection(DcMotor.Direction.REVERSE);
+            yes.setPosition(.85);
+        // Wait for the game to start (driver presses PLAY)
+            waitForStart();
+            runtime.reset();
+
+
+
+        // run until the end of the match (driver presses STOP)
+        while (opModeIsActive()) 
+            {
+
+                armMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                armMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION); 
+                angleMotor1.setMode(DcMotor.RunMode.RUN_TO_POSITION); 
+                angleMotor2.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+                
+                double ch1;
+                double ch3;
+                double ch4;
+                boolean armPowerup;
+                boolean armPowerdown;
+                double extend;
+                boolean up;
+                boolean down;
+                armPowerup = gamepad1.dpad_up;
+                armPowerdown = gamepad1.dpad_down;
+         
+                ch1=gamepad1.right_stick_x*.80;
+                ch4=gamepad1.left_stick_x*.80;
+                ch3=-gamepad1.left_stick_y*.80;
+                extend = gamepad2.left_stick_y;
+                up = gamepad2.left_bumper;
+                down = gamepad2.right_bumper;
+            
+
+                boolean flipped = false;
+                if (gamepad1.a) 
+                    {
+                        flipped = false;
+                    }
+                if (gamepad1.right_bumper) 
+                    {
+                        flipped = true;
+                    }
+                if (flipped == false) 
+                    {
+                        rightDrive.setPower(-ch3 + ch1 + ch4);
+                        rightDriveback.setPower(-ch3 + ch1 - ch4);
+                        leftDrive.setPower(-ch3-ch1 - ch4);
+                        leftDriveback.setPower(-ch3 - ch1 +ch4);
+                    } 
+                else if (flipped == true)
+                    {
+                        rightDrive.setPower(ch3 + ch1 - ch4);
+                        rightDriveback.setPower (ch3 + ch1 + ch4);
+                        leftDrive.setPower(ch3-ch1 + ch4);
+                        leftDriveback.setPower(ch3 - ch1 -ch4);
+                    }
+
+                if (armPowerup == true)
+                    {
+                        armMotor.setTargetPosition(armMotor.getCurrentPosition()-5600);
+                        armMotor.setPower(1);
+                        while (armMotor.isBusy())
+                            {
+                                telemetry.addData("path","arm up");
+                                telemetry.update();
+                                idle();
+                            }
+                        armMotor.setPower(0);
+                    } 
+                else if (armPowerdown == true)
+                    {
+                        armMotor.setTargetPosition(armMotor.getCurrentPosition()+5600);
+                        armMotor.setPower(1);
+                        while (  armMotor.isBusy())
+                            {
+                                telemetry.addData("path","arm down");
+                                telemetry.update();
+                                idle();
+                            }
+                        armMotor.setPower(0);
+        
+                    } 
+    
+                if (gamepad2.b == true)
+                    {
+                        angleMotor1.setPower(0);
+                        angleMotor2.setPower(0);
+            
+                     }
+                else if(up==true)
+                    {
+                        angleMotor1.setTargetPosition(angleMotor1.getCurrentPosition()+300);
+                        angleMotor2.setTargetPosition (angleMotor2.getCurrentPosition()+300);
+                        angleMotor1.setPower(.4);
+                        angleMotor2.setPower(.4);
+                        while(angleMotor1.isBusy())
+                            {
+                                telemetry.addData("path","raising arm");
+                                telemetry.update();
+                                idle(); 
+                            }
+                        angleMotor1.setPower(0.01);
+                        angleMotor2.setPower(0.01);
+                    }
+                else if (down==true)
+                    {
+                        angleMotor1.setTargetPosition(angleMotor1.getCurrentPosition() - 750);
+                        angleMotor2.setTargetPosition (angleMotor2.getCurrentPosition() - 750);
+                        angleMotor1.setPower(.1);
+                        angleMotor2.setPower(.1);
+                        while(angleMotor1.isBusy())
+                            {
+                                telemetry.addData("path","dropping arm");
+                                telemetry.update();
+                                idle(); 
+                            }
+                        angleMotor1.setPower(0.01);
+                        angleMotor2.setPower(0.01);
+                    }
+                else if (gamepad2.left_stick_button)
+                    {
+                        angleMotor1.setTargetPosition(angleMotor1.getCurrentPosition() + 400);
+                        angleMotor2.setTargetPosition(angleMotor2.getCurrentPosition() + 400);
+                        angleMotor1.setPower(.4);
+                        angleMotor2.setPower(.4);
+                        while(angleMotor1.isBusy())
+                            {
+                                telemetry.addData("path","raising the arm");
+                                telemetry.update();
+                                idle(); 
+                            }
+                        angleMotor1.setPower(0.01);
+                        angleMotor2.setPower(0.01);
+                            }
+
+                extendMotor.setPower(extend);
+ 
+                if(gamepad2.a)
+                    {
+                        armPosition += armSpeed;
+                    }
+                else if (gamepad2.y)
+                    {
+                        armPosition -= armSpeed;
+                    }
+                else if (gamepad2.x)
+                    {
+                        armPosition = 0.0;
+                    }
+                    armPosition= Range.clip(armPosition,ARM_MIN_RANGE,ARM_MAX_RANGE );
+                    arm_servo.setPower(armPosition);
+            
+                if(gamepad2.dpad_up) 
+                    {
+                    // top position
+                        Grip1.setPosition(1);
+                    }
+   
+                else if (gamepad2.dpad_right)
+                    {
+                        Grip1.setPosition(.5);
+                    }
+                else if (gamepad2.dpad_down)
+                    {
+                        Grip1.setPosition(.75);
+                    }
+
+
+                leftDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                rightDrive.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                rightDriveback.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                leftDriveback.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                // Show the elapsed game time and wheel power.
+                telemetry.addData("Status", "Run Time: " + runtime.toString());
+                telemetry.addData("Motors", "left (%.2f), right (%.2f)" );
+                telemetry.update();
+            }
+        }
+    }
